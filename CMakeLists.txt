@@ -11,6 +11,9 @@ add_library(glad STATIC extern/glad/src/glad.c)
 # 指定 glad 的头文件目录（这样包含 #include <glad/glad.h> 时可以找到）
 target_include_directories(glad PUBLIC extern/glad/include)
 
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE extern/stb)
+
 include_directories(include)
 
 # 创建可执行文件
@@ -19,8 +22,9 @@ add_executable(LearnOpenGL
         src/Shader.cpp
 )
 
-target_link_libraries(LearnOpenGL PRIVATE glfw glad)
+target_link_libraries(LearnOpenGL PRIVATE glfw glad stb)
 
 # 添加 shaders 目录到编译目录
 file(COPY ${CMAKE_SOURCE_DIR}/shaders DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_BINARY_DIR})
 
