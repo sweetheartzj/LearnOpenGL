@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -41,18 +43,24 @@ int main() {
     glViewport(0, 0, WIDTH, HEIGHT);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
+
+
+
     const Shader shader("shaders/vert.glsl", "shaders/frag.glsl");
 
     // 定义顶点数据
     constexpr float vertices[] = {
-        0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+        // -- 位置 -- 颜色 -- 纹理坐标 --
+        0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        -0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
     };
 
     // 定义顶点索引
     constexpr unsigned int indices[] = {
-        0, 1, 2,
+        0, 1, 3,
+        1, 2, 3,
     };
 
     // 生成 VBO 和 VAO
@@ -72,11 +80,14 @@ int main() {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
         // 位置属性
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
         glEnableVertexAttribArray(0);
         // 颜色属性
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<const void *>(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
+        // 纹理坐标属性
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<const void *>(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
 
         // 在 VAO 处于活动状态时，不要解绑 EBO，因为绑定的元素缓冲对象存储在 VAO 中，需要保持 EBO 绑定
         // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -84,6 +95,54 @@ int main() {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     // 解绑 VAO
     glBindVertexArray(0);
+
+    unsigned int texture1;
+    glGenTextures(1, &texture1);
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    // 设置环绕方式、过滤方式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load("resources/textures/container.jpg", &width, &height, &nrChannels, 0);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else {
+        throw std::runtime_error("Failed to load texture");
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(data);
+
+    unsigned int texture2;
+    glGenTextures(1, &texture2);
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    // 设置环绕方式、过滤方式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    data = stbi_load("resources/textures/awesomeface.png", &width, &height, &nrChannels, 0);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else {
+        throw std::runtime_error("Failed to load texture");
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(data);
+
+    // 设置纹理单元
+    shader.use();
+    shader.setInt("texture1", 0);
+    shader.setInt("texture2", 1);
+
 
     // 设置线框模式
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -97,12 +156,14 @@ int main() {
         shader.use();
 
         // 更新 uniform 变量
-        const auto timeValue = static_cast<float>(glfwGetTime());
-        const float greenValue = sin(timeValue) / 2.0f + 0.5f;
-        shader.setFloat("green", greenValue);
+        // const auto timeValue = static_cast<float>(glfwGetTime());
+        // const float greenValue = sin(timeValue) / 2.0f + 0.5f;
+        // shader.setFloat("green", greenValue);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2);
 
-        // 绘制三角形
-        // 由于当前只有一个 VAO，因此不需要每次绘制时都绑定
         glBindVertexArray(VAO);
         // glDrawArrays(GL_TRIANGLES, 0, 6);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
@@ -111,6 +172,8 @@ int main() {
         glfwPollEvents();
     }
     // 释放所有资源
+    glDeleteTextures(1, &texture1);
+    glDeleteTextures(1, &texture2);
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
