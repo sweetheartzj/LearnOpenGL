@@ -1,6 +1,7 @@
 #include "Shader.h"
 
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 
 unsigned int Shader::linkProgram(const unsigned int vertexShader, const unsigned int fragmentShader) {
@@ -78,6 +79,11 @@ void Shader::setInt(const std::string &name, const int value) const {
 void Shader::setFloat(const std::string &name, const float value) const {
     const int location = glGetUniformLocation(mId, name.c_str());
     glUniform1f(location, value);
+}
+
+void Shader::setMat4(const std::string &name, const glm::mat4 &mat) const {
+    const int location = glGetUniformLocation(mId, name.c_str());
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
 }
 
 
