@@ -8,21 +8,72 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "Shader.h"
+#include "Camera.h"
 
+constexpr unsigned int WIDTH = 800;
+constexpr unsigned int HEIGHT = 600;
+
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+auto lastX = WIDTH / 2.0f;
+auto lastY = HEIGHT / 2.0f;
+auto firstMouse = true;
+
+
+Camera camera{glm::vec3(0.0f, 0.0f, 3.0f)};
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        camera.processKeyBoard(FORWARD, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        camera.processKeyBoard(BACKWARD, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        camera.processKeyBoard(LEFT, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        camera.processKeyBoard(RIGHT, deltaTime);
+    }
+
+
+}
+
+void mouseCallback(GLFWwindow* window, const double xPosIn, const double yPosIn) {
+    const auto xPos = static_cast<float>(xPosIn);
+    const auto yPos = static_cast<float>(yPosIn);
+
+    if (firstMouse) {
+        lastX = xPos;
+        lastY = yPos;
+        firstMouse = false;
+    }
+
+    float xOffset = xPos - lastX;
+    // glfw y 坐标是反的，所以要反过来
+    float yOffset = lastY - yPos;
+    lastX = xPos;
+    lastY = yPos;
+
+    constexpr  float sensitivity = 0.05f;
+    xOffset *= sensitivity;
+    yOffset *= sensitivity;
+    camera.processMouseMovement(xOffset, yOffset);
+}
+
+void scrollCallback(GLFWwindow* window, const double xOffset, const double yOffset) {
+    camera.processMouseScroll(static_cast<float>(yOffset));
 }
 
 void framebufferSizeCallback(GLFWwindow* window, const int width, const int height) {
     std::cout << "Framebuffer size callback: " << width << " " << height << std::endl;
     glViewport(0, 0, width, height);
 }
-
-constexpr unsigned int WIDTH = 800;
-constexpr unsigned int HEIGHT = 600;
 
 
 int main() {
@@ -46,14 +97,15 @@ int main() {
 
     glViewport(0, 0, WIDTH, HEIGHT);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-
-
+    glfwSetCursorPosCallback(window, mouseCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
 
 
     const Shader shader("shaders/vert.glsl", "shaders/frag.glsl");
 
     // 定义顶点数据
-    float vertices[] = {
+    constexpr float vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
          0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
          0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
@@ -97,7 +149,7 @@ int main() {
         -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
 
-    glm::vec3 cubePositions[] = {
+    constexpr glm::vec3 cubePositions[] = {
         glm::vec3( 0.0f,  0.0f,  0.0f),
         glm::vec3( 2.0f,  5.0f, -15.0f),
         glm::vec3(-1.5f, -2.2f, -2.5f),
@@ -203,6 +255,9 @@ int main() {
     // 设置线框模式
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     while (!glfwWindowShouldClose(window)) {
+        const auto currentFrame = static_cast<float>(glfwGetTime());
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
         processInput(window);
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -211,10 +266,10 @@ int main() {
         // 激活着色器程序对象
         shader.use();
 
-        auto view = glm::mat4(1.0f);
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.1f, 100.0f);
+        auto view = camera.getViewMatrix();
+
+        glm::mat4 projection = glm::perspective(glm::radians(camera.mZoom), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.1f, 100.0f);
 
 
         shader.setMat4("view", view);

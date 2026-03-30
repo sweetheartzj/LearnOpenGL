@@ -22,6 +22,7 @@ include_directories(include)
 add_executable(LearnOpenGL
         main.cpp
         src/Shader.cpp
+        src/Camera.cpp
 )
 
 target_link_libraries(LearnOpenGL PRIVATE glfw glad stb glm)
