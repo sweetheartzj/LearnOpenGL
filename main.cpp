@@ -4,8 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Shader.h"
 #include "Camera.h"
@@ -20,8 +19,9 @@ auto lastX = WIDTH / 2.0f;
 auto lastY = HEIGHT / 2.0f;
 auto firstMouse = true;
 
+glm::vec3 lightPos{1.2f, 1.0f, 2.0f};
 
-Camera camera{glm::vec3(0.0f, 0.0f, 3.0f)};
+Camera camera{glm::vec3(0.0f, 0.0f, 6.0f)};
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -101,9 +101,6 @@ int main() {
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
 
-
-    const Shader shader("shaders/vert.glsl", "shaders/frag.glsl");
-
     // 定义顶点数据
     constexpr float vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -149,108 +146,32 @@ int main() {
         -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
 
-    constexpr glm::vec3 cubePositions[] = {
-        glm::vec3( 0.0f,  0.0f,  0.0f),
-        glm::vec3( 2.0f,  5.0f, -15.0f),
-        glm::vec3(-1.5f, -2.2f, -2.5f),
-        glm::vec3(-3.8f, -2.0f, -12.3f),
-        glm::vec3( 2.4f, -0.4f, -3.5f),
-        glm::vec3(-1.7f,  3.0f, -7.5f),
-        glm::vec3( 1.3f, -2.0f, -2.5f),
-        glm::vec3( 1.5f,  2.0f, -2.5f),
-        glm::vec3( 1.5f,  0.2f, -1.5f),
-        glm::vec3(-1.3f,  1.0f, -1.5f)
-      };
 
-    // 定义顶点索引
-    // constexpr unsigned int indices[] = {
-    //     0, 1, 3,
-    //     1, 2, 3,
-    // };
+    const Shader lightingShader{"./shaders/light/vert.glsl", "./shaders/light/frag.glsl"};
+    const Shader lampShader{"./shaders/light/vert.glsl", "./shaders/light/lamp.frag.glsl"};
 
-    // 生成 VBO 和 VAO
-    unsigned int VAO;
+
     unsigned int VBO;
-    // unsigned int EBO;
-    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    // glGenBuffers(1, &EBO);
-    // 先绑定 VAO，再绑定并设置顶点缓冲，最后配置顶点属性
-    glBindVertexArray(VAO);
-        // 绑定 VBO
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        // 将顶点数据复制到缓冲中
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        // 绑定并设置 EBO
-        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-        // 位置属性
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
-        // 颜色属性
-        // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<const void *>(3 * sizeof(float)));
-        // glEnableVertexAttribArray(1);
-        // 纹理坐标属性
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<const void *>(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        // 在 VAO 处于活动状态时，不要解绑 EBO，因为绑定的元素缓冲对象存储在 VAO 中，需要保持 EBO 绑定
-        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        // 解绑 VBO
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // 解绑 VAO
+    unsigned int lightingVAO;
+    glGenVertexArrays(1, &lightingVAO);
+    glBindVertexArray(lightingVAO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
-    unsigned int texture1;
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    // 设置环绕方式、过滤方式
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char *data = stbi_load("resources/textures/container.jpg", &width, &height, &nrChannels, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else {
-        throw std::runtime_error("Failed to load texture");
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-    stbi_image_free(data);
-
-    unsigned int texture2;
-    glGenTextures(1, &texture2);
-    glBindTexture(GL_TEXTURE_2D, texture2);
-    // 设置环绕方式、过滤方式
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    data = stbi_load("resources/textures/awesomeface.png", &width, &height, &nrChannels, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else {
-        throw std::runtime_error("Failed to load texture");
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-    stbi_image_free(data);
-
-    // z-buffer
-    glEnable(GL_DEPTH_TEST);
+    unsigned int lampVAO;
+    glGenVertexArrays(1, &lampVAO);
+    glBindVertexArray(lampVAO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
 
 
-    // 设置纹理单元
-    shader.use();
-    shader.setInt("texture1", 0);
-    shader.setInt("texture2", 1);
 
     // 设置线框模式
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -263,33 +184,32 @@ int main() {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // 激活着色器程序对象
-        shader.use();
-
-
+        auto model = glm::mat4(1.0f);
         auto view = camera.getViewMatrix();
-
         glm::mat4 projection = glm::perspective(glm::radians(camera.mZoom), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.1f, 100.0f);
 
+        lightingShader.use();
+        lightingShader.setVec3("objectColor", glm::vec3{1.0f, 0.5f, 0.31f});
+        lightingShader.setVec3("lightColor", glm::vec3{1.0f, 1.0f, 1.0f});
+        lightingShader.setMat4("model", model);
+        lightingShader.setMat4("view", view);
+        lightingShader.setMat4("projection", projection);
 
-        shader.setMat4("view", view);
-        shader.setMat4("projection", projection);
+        glBindVertexArray(lightingVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture2);
+        lampShader.use();
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3{0.2f});
+        lampShader.setMat4("model", model);
+        lampShader.setMat4("view", view);
+        lampShader.setMat4("projection", projection);
 
-        glBindVertexArray(VAO);
+        glBindVertexArray(lampVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
 
-        for (auto i = 0; i < 10; i++) {
-            auto model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[i]);
-            model = glm::rotate(model, glm::radians(20.0f * static_cast<float>(i)), glm::vec3(1.0f, 0.3f, 0.5f));
-            shader.setMat4("model", model);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
 
         // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
@@ -297,9 +217,8 @@ int main() {
         glfwPollEvents();
     }
     // 释放所有资源
-    glDeleteTextures(1, &texture1);
-    glDeleteTextures(1, &texture2);
-    glDeleteVertexArrays(1, &VAO);
+    glDeleteVertexArrays(1, &lightingVAO);
+    glDeleteVertexArrays(1, &lampVAO);
     glDeleteBuffers(1, &VBO);
     // glDeleteBuffers(1, &EBO);
 
