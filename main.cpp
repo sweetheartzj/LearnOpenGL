@@ -19,9 +19,7 @@ auto lastX = WIDTH / 2.0f;
 auto lastY = HEIGHT / 2.0f;
 auto firstMouse = true;
 
-glm::vec3 lightPos{1.2f, 1.0f, 2.0f};
-
-
+glm::vec3 lightPos{1.2f, 0.0f, 2.0f};
 
 Camera camera{glm::vec3(0.0f, 0.0f, 5.0f)};
 
@@ -193,14 +191,29 @@ int main() {
         auto view = camera.getViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.mZoom), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.1f, 100.0f);
 
+        glm::vec3 lightColor{
+            sin(currentFrame * 2.0f),
+            sin(currentFrame * 0.7f),
+            sin(currentFrame * 1.3f)
+        };
+        glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+        glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+
         lightingShader.use();
-        lightingShader.setVec3("objectColor", glm::vec3{1.0f, 0.5f, 0.31f});
-        lightingShader.setVec3("lightColor", glm::vec3{1.0f, 1.0f, 1.0f});
+        // lightingShader.setVec3("objectColor", glm::vec3{1.0f, 0.5f, 0.31f});
+        // lightingShader.setVec3("lightColor", glm::vec3{1.0f, 1.0f, 1.0f});
         lightingShader.setMat4("model", glm::rotate(model, glm::radians(20.0f * currentFrame), glm::vec3{0.0f, 1.0f, 0.0f}));
         lightingShader.setMat4("view", view);
         lightingShader.setMat4("projection", projection);
         lightingShader.setVec3("lightPos", lightPos);
         lightingShader.setVec3("viewPos", camera.mPosition);
+        lightingShader.setVec3("material.ambient", {1.0f, 0.5f, 0.31f});
+        lightingShader.setVec3("material.diffuse", {1.0f, 0.5f, 0.31f});
+        lightingShader.setVec3("material.specular", {0.5f, 0.5f, 0.5f});
+        lightingShader.setFloat("material.shininess", 32.0f);
+        lightingShader.setVec3("light.ambient", ambientColor);
+        lightingShader.setVec3("light.diffuse", diffuseColor);
+        lightingShader.setVec3("light.specular", {1.0f, 1.0f, 1.0f});
 
         glBindVertexArray(lightingVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -212,6 +225,7 @@ int main() {
         lampShader.setMat4("model", model);
         lampShader.setMat4("view", view);
         lampShader.setMat4("projection", projection);
+        lampShader.setVec3("lightColor", lightColor);
 
         glBindVertexArray(lampVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
