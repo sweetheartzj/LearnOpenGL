@@ -25,6 +25,9 @@ public:
     void setMat4(const std::string& name, const glm::mat4& mat) const;
     void setVec3(const std::string& name, const glm::vec3& vec) const;
 
+    static unsigned int loadTexture(const std::string& path);
+    void setTexture(const std::string& name, unsigned int textureIndex, unsigned int textureId) const;
+
 private:
     static std::string readFile(const std::string& path) {
         const std::ifstream file(path);
